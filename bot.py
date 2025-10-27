@@ -236,7 +236,7 @@ def main():
     )
     
     logger = logging.getLogger(__name__)
-    logger.info("🚀 Запуск бота...")
+    logger.info("🚀 Запуск бота... v2025-10-27-1")
 
     # Создание приложения
     app = Application.builder().token(BOT_TOKEN).build()
