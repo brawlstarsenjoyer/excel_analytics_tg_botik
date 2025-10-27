@@ -295,11 +295,7 @@ def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(
-        filters.Document.mime_type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") |
-        filters.Document.file_extension("xlsx"),
-        handle_document
-    ))
+    app.add_handler(MessageHandler(filters.Document, handle_document))  # ← Без mime_type!
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, welcome_or_start))
     app.add_error_handler(error_handler)
 
