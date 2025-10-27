@@ -1,6 +1,4 @@
-# requirements.txt
---force-reinstall
---no-cache-dir
+# REINSTALL 2025-10-28 — clear cache
 python-telegram-bot==21.7
 pandas==2.2.3
 openpyxl==3.1.5
