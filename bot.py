@@ -244,7 +244,7 @@ def main():
     # Регистрация обработчиков
     app.add_handler(CommandHandler("start", start))
     app.add_handler(MessageHandler(
-        filters.Document.mime_type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+        filters.Document.MymeType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
         handle_document
     ))
     app.add_handler(MessageHandler(
