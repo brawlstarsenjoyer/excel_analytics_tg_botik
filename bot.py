@@ -174,15 +174,7 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚙️ Обрабатываю данные...")
         report_date, text_report, df_result = analyze_excel(input_path)
 
-        # Отправка текстового отчёта
-        if len(text_report) < 4000:
-            await update.message.reply_text(text_report)
-        else:
-            await update.message.reply_text(
-                f"📅 Дата отчёта: {report_date}\n\n"
-                "📊 Отчёт слишком длинный для отображения.\n"
-                "Отправляю полный анализ в файле..."
-            )
+       
 
                        # Формируем отчёт
         txt_content = format_sales_report(report_date, df_result)
