@@ -1,3 +1,6 @@
+# requirements.txt
+--force-reinstall
+--no-cache-dir
 python-telegram-bot==21.7
 pandas==2.2.3
 openpyxl==3.1.5
