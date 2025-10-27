@@ -240,53 +240,55 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         pass
 def format_sales_report(report_date: str, df: pd.DataFrame) -> str:
-    """Форматирует результат анализа в красивый текстовый отчёт, как в примере"""
-    # Убедимся, что индекс — название товара
+    """Форматирует отчёт в стиле report (17)_для_telegram.txt — с ровными колонками"""
     df = df.copy()
     if df.index.name != "Denumire marfa":
         df.index.name = "Denumire marfa"
-    
     items = df.reset_index()
 
-    # Определяем кофейные напитки (по вашему списку)
+    # Кофейные напитки
     coffee_items = items[items["Denumire marfa"].str.lower().str.strip().isin(PRIORITY_DRINKS_LOWER)]
-    other_items = items[~items["Denumire marfa"].str.lower().str.strip().isin(PRIORITY_DRINKS_LOWER)]
-
     total_revenue = items["Сумма"].sum()
     coffee_revenue = coffee_items["Сумма"].sum() if not coffee_items.empty else 0
     coffee_count = coffee_items["Количество"].sum() if not coffee_items.empty else 0
 
-    # Состав кофейных напитков
+    # Состав (как в примере — строчные названия, без скобок)
     composition_parts = []
+    name_mapping = {
+        "Double espresso decaffeinated": "double espresso decaf",
+        "Flat White decaffeinated": "flat white decaf",
+        "Latte decaffeinated": "latte decaf",
+        "Ice latte decaffeinated": "ice latte decaf",
+        "Espresso decaffeinated": "espresso decaf",
+        "Americano decaffeinated": "americano decaf",
+        "Cappuccino decaffeinated": "cappuccino decaf",
+        "Doppio(double espresso)": "doppio",
+        "Double cappuccino vegan": "double cappuccino vegan",
+        "Flat white vegan": "flat white vegan",
+        "Latte vegan": "latte vegan",
+        "Ice latte vegan": "ice latte vegan",
+        "Cappuccino vegan": "cappuccino vegan",
+        "Hot chocolate": "hot chocolate",
+        "Chocolate Truffle": "chocolate truffle",
+        "Berry RAF": "berry raf",
+        "Sakura Latte": "sakura latte",
+        "Cheese & Orange Latte": "cheese & orange latte",
+        "Masala Tea Latte": "masala tea latte",
+        "Kakao Banana": "kakao banana",
+        "Bumblebee": "bumblebee",
+        "Espresso tonic": "espresso tonic",
+        "Espresso tonic decaffeinated": "espresso tonic decaf",
+    }
+
     for _, row in coffee_items.iterrows():
-        name = row["Denumire marfa"].lower()
-        # Приводим к виду как в примере: "americano", "cappuccino" и т.д.
-        clean_name = name
-        for full, short in [
-            ("double espresso decaffeinated", "double espresso decaf"),
-            ("flat white decaffeinated", "flat white decaf"),
-            ("latte decaffeinated", "latte decaf"),
-            ("ice latte decaffeinated", "ice latte decaf"),
-            ("espresso decaffeinated", "espresso decaf"),
-            ("americano decaffeinated", "americano decaf"),
-            ("cappuccino decaffeinated", "cappuccino decaf"),
-            ("doppio(double espresso)", "doppio"),
-            ("double cappuccino vegan", "double cappuccino vegan"),
-            ("flat white vegan", "flat white vegan"),
-            ("latte vegan", "latte vegan"),
-            ("ice latte vegan", "ice latte vegan"),
-            ("cappuccino vegan", "cappuccino vegan"),
-        ]:
-            if clean_name == full:
-                clean_name = short
-                break
-        # Убираем скобки и лишние символы
-        clean_name = clean_name.replace("(", "").replace(")", "").replace("  ", " ").strip()
-        composition_parts.append(f"{int(row['Количество'])} {clean_name}")
+        name = row["Denumire marfa"]
+        clean_name = name_mapping.get(name, name.lower())
+        qty = int(row["Количество"])
+        composition_parts.append(f"{qty} {clean_name}")
 
-    composition = " + ".join(composition_parts) if composition_parts else ""
+    composition = " + ".join(composition_parts)
 
-    # Формируем отчёт
+    # Формируем заголовок
     report = f"📅 Дата отчёта: {report_date}\n"
     report += f"💰 Общая выручка за день: {total_revenue:,.2f} лей\n".replace(",", " ")
     report += f"☕ Выручка от кофейных напитков: {coffee_revenue:,.2f} лей\n".replace(",", " ")
@@ -297,18 +299,21 @@ def format_sales_report(report_date: str, df: pd.DataFrame) -> str:
     report += f"🍱 Выручка от остального: {other_revenue:,.2f} лей\n".replace(",", " ")
     report += "\n📊 Отчёт по продажам:\n"
 
-    # Заголовок таблицы
-    report += f"{'Denumire marfa':<40} {'Количество':<12} {'Сумма'}\n"
-    report += "─" * 64 + "\n"
+    # Заголовок таблицы — точно как в примере
+    report += f"{'Denumire marfa':<44} {'Количество':<12} {'Сумма'}\n"
+    report += "─" * 68 + "\n"
 
-    # Все позиции (в том порядке, как в df — уже отсортированы)
+    # Таблица с фиксированным выравниванием
     for _, row in items.iterrows():
         name = str(row["Denumire marfa"])
         qty = f"{row['Количество']:.2f}"
         amt = f"{row['Сумма']:.2f}"
-        report += f"{name:<40} {qty:<12} {amt}\n"
+        # Обрезаем название, если слишком длинное (макс 44 символа)
+        if len(name) > 44:
+            name = name[:41] + "..."
+        report += f"{name:<44} {qty:<12} {amt}\n"
 
-    return report
+    return report.rstrip()  # убираем лишний перенос в конце
 
 def main():
     """Основная функция запуска бота"""
