@@ -289,14 +289,16 @@ def main():
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         level=logging.INFO
     )
+    
     logger = logging.getLogger(__name__)
     logger.info("🚀 Запуск бота...")
 
     app = Application.builder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-   app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
+    app.add_handler(MessageHandler(filters.Document.ALL, handle_document))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, welcome_or_start))
+    
     app.add_error_handler(error_handler)
 
     logger.info("✅ Бот запущен!")
