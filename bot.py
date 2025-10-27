@@ -184,25 +184,20 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "Отправляю полный анализ в файле..."
             )
 
-                # Формируем красивый текстовый отчёт
-        txt_report = format_sales_report(report_date, df_result)
+                       # Формируем отчёт
+        txt_content = format_sales_report(report_date, df_result)
 
-        # Отправляем текст, если он короткий
-        if len(txt_report) < 4000:
-            await update.message.reply_text(txt_report)
-        else:
-            # Иначе — отправляем как .txt файл
-            output_filename = f"Отчёт_{report_date}.txt"
-            output_path = os.path.join(tempfile.gettempdir(), output_filename)
-            with open(output_path, 'w', encoding='utf-8') as f_out:
-                f_out.write(txt_report)
-            
-            await update.message.reply_text("📤 Отправляю отчёт в формате .txt...")
-            with open(output_path, 'rb') as f:
-                await update.message.reply_document(
-                    document=f,
-                    filename=output_filename,
-                    caption="✅ Отчёт готов!")
+        # Сохраняем в .txt и отправляем
+        output_filename = f"Отчёт_{report_date.replace('.', '_')}.txt"
+        output_path = os.path.join(tempfile.gettempdir(), output_filename)
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write(txt_content)
+
+        await update.message.reply_document(
+            document=open(output_path, 'rb'),
+            filename=output_filename,
+            caption="✅ Отчёт готов!"
+        )
 
     except ValueError as e:
         logging.error(f"Ошибка валидации: {e}")
@@ -240,7 +235,7 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception:
         pass
 def format_sales_report(report_date: str, df: pd.DataFrame) -> str:
-    """Форматирует отчёт в стиле report (17)_для_telegram.txt — с ровными колонками"""
+    """Форматирует отчёт строго по шаблону из report (17)_для_telegram.txt"""
     df = df.copy()
     if df.index.name != "Denumire marfa":
         df.index.name = "Denumire marfa"
@@ -252,68 +247,74 @@ def format_sales_report(report_date: str, df: pd.DataFrame) -> str:
     coffee_revenue = coffee_items["Сумма"].sum() if not coffee_items.empty else 0
     coffee_count = coffee_items["Количество"].sum() if not coffee_items.empty else 0
 
-    # Состав (как в примере — строчные названия, без скобок)
-    composition_parts = []
-    name_mapping = {
-        "Double espresso decaffeinated": "double espresso decaf",
-        "Flat White decaffeinated": "flat white decaf",
-        "Latte decaffeinated": "latte decaf",
-        "Ice latte decaffeinated": "ice latte decaf",
-        "Espresso decaffeinated": "espresso decaf",
+    # Состав — строчные названия, как в примере
+    name_map = {
+        "Americano": "americano",
+        "Cappuccino": "cappuccino",
+        "Latte": "latte",
+        "Berry RAF": "berry raf",
+        "Double cappuccino": "double cappuccino",
         "Americano decaffeinated": "americano decaf",
-        "Cappuccino decaffeinated": "cappuccino decaf",
-        "Doppio(double espresso)": "doppio",
-        "Double cappuccino vegan": "double cappuccino vegan",
-        "Flat white vegan": "flat white vegan",
-        "Latte vegan": "latte vegan",
-        "Ice latte vegan": "ice latte vegan",
-        "Cappuccino vegan": "cappuccino vegan",
+        "Cheese & Orange Latte": "cheese & orange latte",
+        "Sakura Latte": "sakura latte",
+        "Latte decaffeinated": "latte decaf",
+        "Cacao": "cacao",
+        "Flat White": "flat white",
+        "Flat White decaffeinated": "flat white decaf",
+        "Espresso": "espresso",
+        "Espresso decaffeinated": "espresso decaf",
+        "Double Americano": "double americano",
         "Hot chocolate": "hot chocolate",
         "Chocolate Truffle": "chocolate truffle",
-        "Berry RAF": "berry raf",
-        "Sakura Latte": "sakura latte",
-        "Cheese & Orange Latte": "cheese & orange latte",
-        "Masala Tea Latte": "masala tea latte",
-        "Kakao Banana": "kakao banana",
-        "Bumblebee": "bumblebee",
+        "Doppio(double espresso)": "doppio(double espresso)",
+        "Cappuccino vegan": "cappuccino vegan",
+        "Double cappuccino vegan": "double cappuccino vegan",
+        "Latte vegan": "latte vegan",
+        "Ice latte": "ice latte",
+        "Ice latte decaffeinated": "ice latte decaf",
+        "Ice latte vegan": "ice latte vegan",
         "Espresso tonic": "espresso tonic",
         "Espresso tonic decaffeinated": "espresso tonic decaf",
+        "Bumblebee": "bumblebee",
+        "Masala Tea Latte": "masala tea latte",
+        "Kakao Banana": "kakao banana",
+        "Matcha Latte": "matcha latte",
     }
 
+    composition_parts = []
     for _, row in coffee_items.iterrows():
         name = row["Denumire marfa"]
-        clean_name = name_mapping.get(name, name.lower())
+        clean = name_map.get(name, name.lower())
         qty = int(row["Количество"])
-        composition_parts.append(f"{qty} {clean_name}")
-
+        composition_parts.append(f"{qty} {clean}")
     composition = " + ".join(composition_parts)
 
     # Формируем заголовок
-    report = f"📅 Дата отчёта: {report_date}\n"
-    report += f"💰 Общая выручка за день: {total_revenue:,.2f} лей\n".replace(",", " ")
-    report += f"☕ Выручка от кофейных напитков: {coffee_revenue:,.2f} лей\n".replace(",", " ")
-    report += f"🔢 Всего продано кофейных напитков: {int(coffee_count)} шт.\n"
+    lines = []
+    lines.append(f"📅 Дата отчёта: {report_date}")
+    lines.append(f"💰 Общая выручка за день: {total_revenue:,.2f} лей".replace(",", " "))
+    lines.append(f"☕ Выручка от кофейных напитков: {coffee_revenue:,.2f} лей".replace(",", " "))
+    lines.append(f"🔢 Всего продано кофейных напитков: {int(coffee_count)} шт.")
     if composition:
-        report += f"ℹ️  Состав: {composition}\n"
-    other_revenue = total_revenue - coffee_revenue
-    report += f"🍱 Выручка от остального: {other_revenue:,.2f} лей\n".replace(",", " ")
-    report += "\n📊 Отчёт по продажам:\n"
+        lines.append(f"ℹ️  Состав: {composition}")
+    lines.append(f"🍱 Выручка от остального: {(total_revenue - coffee_revenue):,.2f} лей".replace(",", " "))
+    lines.append("")
+    lines.append("📊 Отчёт по продажам:")
 
-    # Заголовок таблицы — точно как в примере
-    report += f"{'Denumire marfa':<44} {'Количество':<12} {'Сумма'}\n"
-    report += "─" * 68 + "\n"
+    # Заголовок таблицы — точно как в образце
+    lines.append("Denumire marfa                             Количество      Сумма")
+    lines.append("────────────────────────────────────────────────────────────────")
 
-    # Таблица с фиксированным выравниванием
+    # Таблица: фиксированные позиции
     for _, row in items.iterrows():
         name = str(row["Denumire marfa"])
         qty = f"{row['Количество']:.2f}"
         amt = f"{row['Сумма']:.2f}"
-        # Обрезаем название, если слишком длинное (макс 44 символа)
-        if len(name) > 44:
-            name = name[:41] + "..."
-        report += f"{name:<44} {qty:<12} {amt}\n"
+        # Формат: название (макс 40), затем количество (начинается с позиции 41), сумма (с позиции 56)
+        line = f"{name[:40]:<40} {qty:>12} {amt:>10}"
+        lines.append(line)
 
-    return report.rstrip()  # убираем лишний перенос в конце
+    return "\n".join(lines)
 
 def main():
     """Основная функция запуска бота"""
