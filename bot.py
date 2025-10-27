@@ -184,18 +184,25 @@ async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "Отправляю полный анализ в файле..."
             )
 
-        # Создание и отправка Excel-файла
-        output_filename = f"Анализ_отчёта_{report_date}.xlsx"
-        output_path = os.path.join(tempfile.gettempdir(), output_filename)
-        df_result.to_excel(output_path)
+                # Формируем красивый текстовый отчёт
+        txt_report = format_sales_report(report_date, df_result)
 
-        await update.message.reply_text("📤 Отправляю файл с результатами...")
-        with open(output_path, 'rb') as f:
-            await update.message.reply_document(
-                document=f, 
-                filename=output_filename,
-                caption=f"✅ Анализ завершён! Всего позиций: {len(df_result)}"
-            )
+        # Отправляем текст, если он короткий
+        if len(txt_report) < 4000:
+            await update.message.reply_text(txt_report)
+        else:
+            # Иначе — отправляем как .txt файл
+            output_filename = f"Отчёт_{report_date}.txt"
+            output_path = os.path.join(tempfile.gettempdir(), output_filename)
+            with open(output_path, 'w', encoding='utf-8') as f_out:
+                f_out.write(txt_report)
+            
+            await update.message.reply_text("📤 Отправляю отчёт в формате .txt...")
+            with open(output_path, 'rb') as f:
+                await update.message.reply_document(
+                    document=f,
+                    filename=output_filename,
+                    caption="✅ Отчёт готов!")
 
     except ValueError as e:
         logging.error(f"Ошибка валидации: {e}")
@@ -232,7 +239,76 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
     except Exception:
         pass
+def format_sales_report(report_date: str, df: pd.DataFrame) -> str:
+    """Форматирует результат анализа в красивый текстовый отчёт, как в примере"""
+    # Убедимся, что индекс — название товара
+    df = df.copy()
+    if df.index.name != "Denumire marfa":
+        df.index.name = "Denumire marfa"
+    
+    items = df.reset_index()
 
+    # Определяем кофейные напитки (по вашему списку)
+    coffee_items = items[items["Denumire marfa"].str.lower().str.strip().isin(PRIORITY_DRINKS_LOWER)]
+    other_items = items[~items["Denumire marfa"].str.lower().str.strip().isin(PRIORITY_DRINKS_LOWER)]
+
+    total_revenue = items["Сумма"].sum()
+    coffee_revenue = coffee_items["Сумма"].sum() if not coffee_items.empty else 0
+    coffee_count = coffee_items["Количество"].sum() if not coffee_items.empty else 0
+
+    # Состав кофейных напитков
+    composition_parts = []
+    for _, row in coffee_items.iterrows():
+        name = row["Denumire marfa"].lower()
+        # Приводим к виду как в примере: "americano", "cappuccino" и т.д.
+        clean_name = name
+        for full, short in [
+            ("double espresso decaffeinated", "double espresso decaf"),
+            ("flat white decaffeinated", "flat white decaf"),
+            ("latte decaffeinated", "latte decaf"),
+            ("ice latte decaffeinated", "ice latte decaf"),
+            ("espresso decaffeinated", "espresso decaf"),
+            ("americano decaffeinated", "americano decaf"),
+            ("cappuccino decaffeinated", "cappuccino decaf"),
+            ("doppio(double espresso)", "doppio"),
+            ("double cappuccino vegan", "double cappuccino vegan"),
+            ("flat white vegan", "flat white vegan"),
+            ("latte vegan", "latte vegan"),
+            ("ice latte vegan", "ice latte vegan"),
+            ("cappuccino vegan", "cappuccino vegan"),
+        ]:
+            if clean_name == full:
+                clean_name = short
+                break
+        # Убираем скобки и лишние символы
+        clean_name = clean_name.replace("(", "").replace(")", "").replace("  ", " ").strip()
+        composition_parts.append(f"{int(row['Количество'])} {clean_name}")
+
+    composition = " + ".join(composition_parts) if composition_parts else ""
+
+    # Формируем отчёт
+    report = f"📅 Дата отчёта: {report_date}\n"
+    report += f"💰 Общая выручка за день: {total_revenue:,.2f} лей\n".replace(",", " ")
+    report += f"☕ Выручка от кофейных напитков: {coffee_revenue:,.2f} лей\n".replace(",", " ")
+    report += f"🔢 Всего продано кофейных напитков: {int(coffee_count)} шт.\n"
+    if composition:
+        report += f"ℹ️  Состав: {composition}\n"
+    other_revenue = total_revenue - coffee_revenue
+    report += f"🍱 Выручка от остального: {other_revenue:,.2f} лей\n".replace(",", " ")
+    report += "\n📊 Отчёт по продажам:\n"
+
+    # Заголовок таблицы
+    report += f"{'Denumire marfa':<40} {'Количество':<12} {'Сумма'}\n"
+    report += "─" * 64 + "\n"
+
+    # Все позиции (в том порядке, как в df — уже отсортированы)
+    for _, row in items.iterrows():
+        name = str(row["Denumire marfa"])
+        qty = f"{row['Количество']:.2f}"
+        amt = f"{row['Сумма']:.2f}"
+        report += f"{name:<40} {qty:<12} {amt}\n"
+
+    return report
 
 def main():
     """Основная функция запуска бота"""
